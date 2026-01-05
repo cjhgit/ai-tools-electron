@@ -14,6 +14,7 @@ export default defineConfig(({ command }) => {
   const sourcemap = isServe || !!process.env.VSCODE_DEBUG
 
   return {
+    publicDir: 'public', // 确保 public 文件夹被复制
     resolve: {
       alias: {
         '@': path.join(__dirname, 'src')

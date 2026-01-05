@@ -1,6 +1,11 @@
 /// <reference types="vite/client" />
 
-interface Window {
-  // expose in the `electron/preload/index.ts`
-  ipcRenderer: import('electron').IpcRenderer
+declare namespace JSX {
+  interface IntrinsicElements {
+    webview: React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+      src?: string
+      style?: React.CSSProperties
+      className?: string
+    }
+  }
 }

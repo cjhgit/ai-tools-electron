@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, screen } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -44,11 +44,17 @@ const preload = path.join(__dirname, '../preload/index.mjs')
 const indexHtml = path.join(RENDERER_DIST, 'index.html')
 
 async function createWindow() {
+  // 获取主屏幕的工作区尺寸
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  
   win = new BrowserWindow({
     title: 'Main window',
+    width: width,
+    height: height,
     icon: path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
     webPreferences: {
       preload,
+      webviewTag: true, // 启用 webview 标签
       // Warning: Enable nodeIntegration and disable contextIsolation is not secure in production
       // nodeIntegration: true,
 
@@ -119,5 +125,17 @@ ipcMain.handle('open-win', (_, arg) => {
     childWindow.loadURL(`${VITE_DEV_SERVER_URL}#${arg}`)
   } else {
     childWindow.loadFile(indexHtml, { hash: arg })
+  }
+})
+
+// Resolve app path for webview
+ipcMain.handle('resolve-app-path', (_, url: string) => {
+  if (VITE_DEV_SERVER_URL) {
+    // 开发环境：使用 dev server URL
+    return `${VITE_DEV_SERVER_URL}${url}`
+  } else {
+    // 生产环境：使用 file:// 协议
+    const appPath = path.join(RENDERER_DIST, url)
+    return `file://${appPath}`
   }
 })
