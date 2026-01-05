@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Base64 编码</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 2rem;
+            font-size: 2rem;
+        }
+
+        .section {
+            margin-bottom: 2rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            resize: vertical;
+            transition: all 0.3s;
+            min-height: 150px;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea[readonly] {
+            background-color: #f8f9fa;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn-encode {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-encode:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-clear {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-clear:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .btn-copy {
+            padding: 6px 16px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-copy:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+
+        .message {
+            margin-top: 1rem;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Base64 编码</h1>
+        
+        <div class="section">
+            <label for="input">原始文本：</label>
+            <textarea id="input" placeholder="请输入要编码的文本..."></textarea>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn-encode" onclick="encode()">编码</button>
+            <button class="btn-clear" onclick="clearAll()">清空</button>
+        </div>
+
+        <div class="section">
+            <div class="output-header">
+                <label>Base64 结果：</label>
+                <button class="btn-copy" id="copyBtn" onclick="copy()" style="display: none;">复制</button>
+            </div>
+            <textarea id="output" readonly placeholder="编码结果将显示在这里..."></textarea>
+        </div>
+
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        const inputElem = document.getElementById('input');
+        const outputElem = document.getElementById('output');
+        const copyBtn = document.getElementById('copyBtn');
+        const messageElem = document.getElementById('message');
+
+        function encode() {
+            const input = inputElem.value;
+            if (!input) {
+                showMessage('请输入要编码的文本', 'error');
+                return;
+            }
+
+            try {
+                const encoded = btoa(unescape(encodeURIComponent(input)));
+                outputElem.value = encoded;
+                copyBtn.style.display = 'block';
+                showMessage('编码成功！', 'success');
+            } catch (error) {
+                outputElem.value = '编码失败：' + error.message;
+                copyBtn.style.display = 'none';
+                showMessage('编码失败', 'error');
+            }
+        }
+
+        function clearAll() {
+            inputElem.value = '';
+            outputElem.value = '';
+            copyBtn.style.display = 'none';
+            hideMessage();
+        }
+
+        async function copy() {
+            try {
+                await navigator.clipboard.writeText(outputElem.value);
+                showMessage('已复制到剪贴板！', 'success');
+            } catch (error) {
+                showMessage('复制失败', 'error');
+            }
+        }
+
+        function showMessage(text, type) {
+            messageElem.textContent = text;
+            messageElem.className = 'message ' + type;
+            messageElem.style.display = 'block';
+            setTimeout(hideMessage, 3000);
+        }
+
+        function hideMessage() {
+            messageElem.style.display = 'none';
+        }
+
+        // 监听输入变化
+        inputElem.addEventListener('input', () => {
+            if (!inputElem.value) {
+                outputElem.value = '';
+                copyBtn.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
+
