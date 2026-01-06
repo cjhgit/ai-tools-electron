@@ -67,6 +67,12 @@
   margin-bottom: 1rem;
 }
 
+.app-card .app-icon img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
 .app-card h3 {
   font-size: 1.5rem;
   margin-bottom: 0.5rem;

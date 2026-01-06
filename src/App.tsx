@@ -6,6 +6,7 @@ function App() {
   const [apps, setApps] = useState<AppInfo[]>([])
   const [currentApp, setCurrentApp] = useState<AppInfo | null>(null)
   const [appsDirPath, setAppsDirPath] = useState<string>('')
+  const [resolvedIconPaths, setResolvedIconPaths] = useState<Record<string, string>>({})
   const webviewRef = useRef<HTMLElement>(null)
 
   const handleBackToHome = () => {
@@ -14,7 +15,22 @@ function App() {
 
   // 加载应用列表
   useEffect(() => {
-    getApps().then(setApps)
+    const loadApps = async () => {
+      const loadedApps = await getApps()
+      setApps(loadedApps)
+      
+      // 解析所有图标路径
+      if (window.electronAPI?.resolveAppPath) {
+        const iconPaths: Record<string, string> = {}
+        for (const app of loadedApps) {
+          const iconPath = `/apps/${app.id}/${app.icon}`
+          iconPaths[app.id] = await window.electronAPI.resolveAppPath(iconPath)
+        }
+        setResolvedIconPaths(iconPaths)
+      }
+    }
+    
+    loadApps()
     
     // 获取 apps 目录路径
     if (window.electronAPI?.getAppsDirPath) {
@@ -79,7 +95,12 @@ function App() {
             className="app-card"
             onClick={() => setCurrentApp(app)}
           >
-            <div className="app-icon">{app.icon}</div>
+            <div className="app-icon">
+              <img 
+                src={resolvedIconPaths[app.id] || `/apps/${app.id}/${app.icon}`} 
+                alt={app.name} 
+              />
+            </div>
             <h3>{app.name}</h3>
             <p>{app.description}</p>
           </div>

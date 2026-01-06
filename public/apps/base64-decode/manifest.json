@@ -2,6 +2,6 @@
     "id": "base64-decode",
     "name": "Base64 解码",
     "description": "将 Base64 文本解码为原始文本",
-    "icon": "🔓"
+    "icon": "icon.png"
 }
 

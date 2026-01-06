@@ -2,5 +2,5 @@
     "id": "hello-world",
     "name": "Hello World",
     "description": "经典的 Hello World 应用",
-    "icon": "👋"
+    "icon": "icon.png"
 }

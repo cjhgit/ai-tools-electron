@@ -1,7 +1,7 @@
 {
   "name": "electron-vite-react",
   "productName": "AI Tools",
-  "version": "26.1.6",
+  "version": "26.1.7",
   "main": "dist-electron/main/index.js",
   "description": "Electron Vite React boilerplate.",
   "author": "草鞋没号 <308487730@qq.com>",
