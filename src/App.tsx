@@ -23,8 +23,20 @@ function App() {
       if (window.electronAPI?.resolveAppPath) {
         const iconPaths: Record<string, string> = {}
         for (const app of loadedApps) {
-          const iconPath = `/apps/${app.id}/${app.icon}`
-          iconPaths[app.id] = await window.electronAPI.resolveAppPath(iconPath)
+          if (app.isBuiltIn === false && app.userAppPath) {
+            // 用户应用：读取图标为 base64
+            if (window.electronAPI.readIconAsBase64) {
+              const iconFullPath = `${app.userAppPath}/${app.icon}`
+              const base64Icon = await window.electronAPI.readIconAsBase64(iconFullPath)
+              if (base64Icon) {
+                iconPaths[app.id] = base64Icon
+              }
+            }
+          } else {
+            // 内置应用：使用相对路径
+            const iconPath = `/apps/${app.id}/${app.icon}`
+            iconPaths[app.id] = await window.electronAPI.resolveAppPath(iconPath)
+          }
         }
         setResolvedIconPaths(iconPaths)
       }

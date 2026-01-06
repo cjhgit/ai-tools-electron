@@ -4,6 +4,7 @@ export interface IElectronAPI {
   resolveAppPath: (url: string) => Promise<string>
   getAppsList: () => Promise<AppInfo[]>
   getAppsDirPath: () => Promise<string>
+  readIconAsBase64: (iconPath: string) => Promise<string | null>
 }
 
 declare global {

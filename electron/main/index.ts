@@ -130,6 +130,11 @@ ipcMain.handle('open-win', (_, arg) => {
 
 // Resolve app path for webview
 ipcMain.handle('resolve-app-path', (_, url: string) => {
+  // 如果已经是完整的 file:// 路径（用户应用），直接返回
+  if (url.startsWith('file://')) {
+    return url
+  }
+  
   if (VITE_DEV_SERVER_URL) {
     // 开发环境：使用 dev server URL
     return `${VITE_DEV_SERVER_URL}${url}`
@@ -140,24 +145,53 @@ ipcMain.handle('resolve-app-path', (_, url: string) => {
   }
 })
 
+// Read icon as base64 for user apps
+ipcMain.handle('read-icon-as-base64', async (_, iconPath: string) => {
+  try {
+    const fs = await import('node:fs/promises')
+    const buffer = await fs.readFile(iconPath)
+    const base64 = buffer.toString('base64')
+    
+    // 检测文件类型
+    let mimeType = 'image/png'
+    if (iconPath.endsWith('.jpg') || iconPath.endsWith('.jpeg')) {
+      mimeType = 'image/jpeg'
+    } else if (iconPath.endsWith('.svg')) {
+      mimeType = 'image/svg+xml'
+    } else if (iconPath.endsWith('.gif')) {
+      mimeType = 'image/gif'
+    } else if (iconPath.endsWith('.webp')) {
+      mimeType = 'image/webp'
+    }
+    
+    return `data:${mimeType};base64,${base64}`
+  } catch (error) {
+    console.error('Failed to read icon:', error)
+    return null
+  }
+})
+
 // Get apps directory path
 ipcMain.handle('get-apps-dir-path', () => {
   const appsDir = path.join(process.env.VITE_PUBLIC!, 'apps')
   return appsDir
 })
 
-// Get apps list from public/apps directory
+// Get apps list from public/apps directory and ~/.ai-tools/apps
 ipcMain.handle('get-apps-list', async () => {
   const fs = await import('node:fs/promises')
-  const appsDir = path.join(process.env.VITE_PUBLIC!, 'apps')
+  const builtInAppsDir = path.join(process.env.VITE_PUBLIC!, 'apps')
+  const userAppsDir = path.join(os.homedir(), '.ai-tools', 'apps')
   
+  const apps = []
+  
+  // 读取内置应用
   try {
-    const entries = await fs.readdir(appsDir, { withFileTypes: true })
-    const apps = []
+    const entries = await fs.readdir(builtInAppsDir, { withFileTypes: true })
     
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const manifestPath = path.join(appsDir, entry.name, 'manifest.json')
+        const manifestPath = path.join(builtInAppsDir, entry.name, 'manifest.json')
         try {
           const manifestContent = await fs.readFile(manifestPath, 'utf-8')
           const manifest = JSON.parse(manifestContent)
@@ -167,17 +201,47 @@ ipcMain.handle('get-apps-list', async () => {
             name: manifest.name,
             description: manifest.description,
             url: `/apps/${entry.name}/index.html`,
-            icon: manifest.icon
+            icon: manifest.icon,
+            isBuiltIn: true
           })
         } catch (error) {
           console.error(`Failed to read manifest for ${entry.name}:`, error)
         }
       }
     }
-    
-    return apps
   } catch (error) {
-    console.error('Failed to read apps directory:', error)
-    return []
+    console.error('Failed to read built-in apps directory:', error)
   }
+  
+  // 读取用户自定义应用
+  try {
+    const entries = await fs.readdir(userAppsDir, { withFileTypes: true })
+    
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const manifestPath = path.join(userAppsDir, entry.name, 'manifest.json')
+        try {
+          const manifestContent = await fs.readFile(manifestPath, 'utf-8')
+          const manifest = JSON.parse(manifestContent)
+          
+          apps.push({
+            id: manifest.id,
+            name: manifest.name,
+            description: manifest.description,
+            url: `file://${path.join(userAppsDir, entry.name, 'index.html')}`,
+            icon: manifest.icon,
+            isBuiltIn: false,
+            userAppPath: path.join(userAppsDir, entry.name)
+          })
+        } catch (error) {
+          console.error(`Failed to read manifest for user app ${entry.name}:`, error)
+        }
+      }
+    }
+  } catch (error) {
+    // 用户目录可能不存在，这是正常的，不需要报错
+    console.log('User apps directory does not exist or cannot be read:', (error as Error).message)
+  }
+  
+  return apps
 })

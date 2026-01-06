@@ -4,6 +4,8 @@ export interface AppInfo {
   description: string
   url: string
   icon: string
+  isBuiltIn?: boolean
+  userAppPath?: string
 }
 
 // 默认应用列表（用于浏览器环境或作为后备）
