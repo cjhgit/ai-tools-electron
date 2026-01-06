@@ -1,14 +1,26 @@
 import { useState, useEffect, useRef } from 'react'
-import { apps, AppInfo } from './apps'
+import { getApps, AppInfo } from './apps'
 import './App.css'
 
 function App() {
+  const [apps, setApps] = useState<AppInfo[]>([])
   const [currentApp, setCurrentApp] = useState<AppInfo | null>(null)
+  const [appsDirPath, setAppsDirPath] = useState<string>('')
   const webviewRef = useRef<HTMLElement>(null)
 
   const handleBackToHome = () => {
     setCurrentApp(null)
   }
+
+  // 加载应用列表
+  useEffect(() => {
+    getApps().then(setApps)
+    
+    // 获取 apps 目录路径
+    if (window.electronAPI?.getAppsDirPath) {
+      window.electronAPI.getAppsDirPath().then(setAppsDirPath)
+    }
+  }, [])
 
   useEffect(() => {
     const loadApp = async () => {
@@ -53,6 +65,11 @@ function App() {
       <header className="main-header">
         <h1>🛠️ AI 工具箱</h1>
         <p className="subtitle">实用工具集合</p>
+        {appsDirPath && (
+          <p className="apps-dir-path" style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
+            应用目录: {appsDirPath}
+          </p>
+        )}
       </header>
 
       <div className="apps-grid">

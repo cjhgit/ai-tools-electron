@@ -1,0 +1,7 @@
+{
+    "id": "base64-encode",
+    "name": "Base64 编码",
+    "description": "将文本编码为 Base64 格式",
+    "icon": "🔒"
+}
+

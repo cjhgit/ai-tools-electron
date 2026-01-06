@@ -1,5 +1,9 @@
+import { AppInfo } from './apps'
+
 export interface IElectronAPI {
   resolveAppPath: (url: string) => Promise<string>
+  getAppsList: () => Promise<AppInfo[]>
+  getAppsDirPath: () => Promise<string>
 }
 
 declare global {
@@ -15,4 +19,5 @@ declare global {
 }
 
 export {}
+
 

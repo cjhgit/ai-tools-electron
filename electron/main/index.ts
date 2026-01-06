@@ -139,3 +139,45 @@ ipcMain.handle('resolve-app-path', (_, url: string) => {
     return `file://${appPath}`
   }
 })
+
+// Get apps directory path
+ipcMain.handle('get-apps-dir-path', () => {
+  const appsDir = path.join(process.env.VITE_PUBLIC!, 'apps')
+  return appsDir
+})
+
+// Get apps list from public/apps directory
+ipcMain.handle('get-apps-list', async () => {
+  const fs = await import('node:fs/promises')
+  const appsDir = path.join(process.env.VITE_PUBLIC!, 'apps')
+  
+  try {
+    const entries = await fs.readdir(appsDir, { withFileTypes: true })
+    const apps = []
+    
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const manifestPath = path.join(appsDir, entry.name, 'manifest.json')
+        try {
+          const manifestContent = await fs.readFile(manifestPath, 'utf-8')
+          const manifest = JSON.parse(manifestContent)
+          
+          apps.push({
+            id: manifest.id,
+            name: manifest.name,
+            description: manifest.description,
+            url: `/apps/${entry.name}/index.html`,
+            icon: manifest.icon
+          })
+        } catch (error) {
+          console.error(`Failed to read manifest for ${entry.name}:`, error)
+        }
+      }
+    }
+    
+    return apps
+  } catch (error) {
+    console.error('Failed to read apps directory:', error)
+    return []
+  }
+})

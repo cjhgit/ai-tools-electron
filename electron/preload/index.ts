@@ -22,5 +22,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 
 // --------- Expose app path resolver ---------
 contextBridge.exposeInMainWorld('electronAPI', {
-  resolveAppPath: (url: string) => ipcRenderer.invoke('resolve-app-path', url)
+  resolveAppPath: (url: string) => ipcRenderer.invoke('resolve-app-path', url),
+  getAppsList: () => ipcRenderer.invoke('get-apps-list'),
+  getAppsDirPath: () => ipcRenderer.invoke('get-apps-dir-path')
 })
