@@ -145,6 +145,46 @@ ipcMain.handle('resolve-app-path', (_, url: string) => {
   }
 })
 
+// Resolve preload script path for webview (must return file:// protocol path)
+ipcMain.handle('resolve-preload-path', async (_, preloadPath: string) => {
+  console.log('[Main] resolve-preload-path called with:', preloadPath)
+  
+  let absolutePath: string
+  
+  // 如果已经是完整的文件系统路径（用户应用），使用它
+  if (path.isAbsolute(preloadPath) && !preloadPath.startsWith('/apps')) {
+    console.log('[Main] Already absolute path:', preloadPath)
+    absolutePath = preloadPath
+  } else {
+    // 内置应用的 preload 脚本路径
+    // preloadPath 格式: /apps/hosts-view/preload.js
+    // 移除开头的斜杠，避免 path.join 的问题
+    const relativePath = preloadPath.startsWith('/') ? preloadPath.slice(1) : preloadPath
+    const publicDir = process.env.VITE_PUBLIC!
+    absolutePath = path.join(publicDir, relativePath)
+    
+    console.log('[Main] Public dir:', publicDir)
+    console.log('[Main] Relative path:', relativePath)
+  }
+  
+  console.log('[Main] Absolute path:', absolutePath)
+  
+  // 检查文件是否存在
+  try {
+    const fs = await import('node:fs/promises')
+    await fs.access(absolutePath)
+    console.log('[Main] Preload file exists ✓')
+  } catch (error) {
+    console.error('[Main] Preload file does not exist ✗')
+  }
+  
+  // 转换为 file:// 协议 URL
+  const fileUrl = `file://${absolutePath}`
+  console.log('[Main] Final preload URL:', fileUrl)
+  
+  return fileUrl
+})
+
 // Read icon as base64 for user apps
 ipcMain.handle('read-icon-as-base64', async (_, iconPath: string) => {
   try {
@@ -202,6 +242,7 @@ ipcMain.handle('get-apps-list', async () => {
             description: manifest.description,
             url: `/apps/${entry.name}/index.html`,
             icon: manifest.icon,
+            preload: manifest.preload || null,
             isBuiltIn: true
           })
         } catch (error) {
@@ -230,6 +271,7 @@ ipcMain.handle('get-apps-list', async () => {
             description: manifest.description,
             url: `file://${path.join(userAppsDir, entry.name, 'index.html')}`,
             icon: manifest.icon,
+            preload: manifest.preload || null,
             isBuiltIn: false,
             userAppPath: path.join(userAppsDir, entry.name)
           })
@@ -244,4 +286,42 @@ ipcMain.handle('get-apps-list', async () => {
   }
   
   return apps
+})
+
+// 读取 hosts 文件
+ipcMain.handle('read-hosts-file', async () => {
+  const fs = await import('node:fs/promises')
+  
+  // 根据操作系统确定 hosts 文件路径
+  let hostsPath: string
+  if (process.platform === 'win32') {
+    hostsPath = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'drivers', 'etc', 'hosts')
+  } else {
+    hostsPath = '/etc/hosts'
+  }
+  
+  try {
+    const content = await fs.readFile(hostsPath, 'utf-8')
+    return {
+      success: true,
+      content,
+      path: hostsPath
+    }
+  } catch (error) {
+    console.error('Failed to read hosts file:', error)
+    return {
+      success: false,
+      error: (error as Error).message,
+      path: hostsPath
+    }
+  }
+})
+
+// 获取 hosts 文件路径
+ipcMain.handle('get-hosts-path', () => {
+  if (process.platform === 'win32') {
+    return path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'drivers', 'etc', 'hosts')
+  } else {
+    return '/etc/hosts'
+  }
 })

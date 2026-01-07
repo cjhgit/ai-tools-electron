@@ -4,6 +4,7 @@ export interface AppInfo {
   description: string
   url: string
   icon: string
+  preload?: string | null
   isBuiltIn?: boolean
   userAppPath?: string
 }

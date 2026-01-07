@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 // --------- Expose app path resolver ---------
 contextBridge.exposeInMainWorld('electronAPI', {
   resolveAppPath: (url: string) => ipcRenderer.invoke('resolve-app-path', url),
+  resolvePreloadPath: (preloadPath: string) => ipcRenderer.invoke('resolve-preload-path', preloadPath),
   getAppsList: () => ipcRenderer.invoke('get-apps-list'),
   getAppsDirPath: () => ipcRenderer.invoke('get-apps-dir-path'),
   readIconAsBase64: (iconPath: string) => ipcRenderer.invoke('read-icon-as-base64', iconPath)

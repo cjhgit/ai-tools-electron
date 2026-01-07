@@ -7,6 +7,8 @@ function App() {
   const [currentApp, setCurrentApp] = useState<AppInfo | null>(null)
   const [appsDirPath, setAppsDirPath] = useState<string>('')
   const [resolvedIconPaths, setResolvedIconPaths] = useState<Record<string, string>>({})
+  const [webviewSrc, setWebviewSrc] = useState<string>('')
+  const [preloadPath, setPreloadPath] = useState<string>('')
   const webviewRef = useRef<HTMLElement>(null)
 
   const handleBackToHome = () => {
@@ -52,16 +54,34 @@ function App() {
 
   useEffect(() => {
     const loadApp = async () => {
-      if (currentApp && webviewRef.current) {
-        const webview = webviewRef.current as any
-        
+      if (currentApp) {
         // 检查是否在 Electron 环境中
         if (window.electronAPI) {
+          // 解析 preload 路径（如果有）
+          if (currentApp.preload) {
+            let resolvedPreloadPath: string
+            if (currentApp.isBuiltIn === false && currentApp.userAppPath) {
+              // 用户应用的 preload（已经是绝对路径）
+              resolvedPreloadPath = `${currentApp.userAppPath}/${currentApp.preload}`
+            } else {
+              // 内置应用的 preload
+              const builtInPreloadPath = `/apps/${currentApp.id}/${currentApp.preload}`
+              resolvedPreloadPath = await window.electronAPI.resolvePreloadPath(builtInPreloadPath)
+            }
+            console.log('Resolved preload path:', resolvedPreloadPath)
+            setPreloadPath(resolvedPreloadPath)
+          } else {
+            setPreloadPath('')
+          }
+          
+          // 解析应用 URL
           const resolvedPath = await window.electronAPI.resolveAppPath(currentApp.url)
-          webview.src = resolvedPath
+          console.log('Resolved webview src:', resolvedPath)
+          setWebviewSrc(resolvedPath)
         } else {
           // 浏览器环境直接使用相对路径
-          webview.src = currentApp.url
+          setWebviewSrc(currentApp.url)
+          setPreloadPath('')
         }
       }
     }
@@ -69,7 +89,18 @@ function App() {
     loadApp()
   }, [currentApp])
 
-  if (currentApp) {
+  if (currentApp && webviewSrc) {
+    const webviewProps: any = {
+      ref: webviewRef,
+      src: webviewSrc,
+      className: "app-iframe"
+    }
+    
+    // 如果有 preload 路径，添加到属性中
+    if (preloadPath) {
+      webviewProps.preload = preloadPath
+    }
+    
     return (
       <div className='App app-page'>
         <div className="app-header">
@@ -79,10 +110,7 @@ function App() {
           <h2>{currentApp.name}</h2>
         </div>
         <div className="app-iframe-container">
-          <webview
-            ref={webviewRef as any}
-            className="app-iframe"
-          />
+          <webview {...webviewProps} />
         </div>
       </div>
     )

@@ -2,6 +2,7 @@ import { AppInfo } from './apps'
 
 export interface IElectronAPI {
   resolveAppPath: (url: string) => Promise<string>
+  resolvePreloadPath: (preloadPath: string) => Promise<string>
   getAppsList: () => Promise<AppInfo[]>
   getAppsDirPath: () => Promise<string>
   readIconAsBase64: (iconPath: string) => Promise<string | null>
