@@ -1,0 +1,10 @@
+---
+name: agents
+description: This is a new rule
+---
+
+
+- 不要写任何文档
+- 插件系统设计，public/apps 保持每个应用代码是完整的、独立的
+
+

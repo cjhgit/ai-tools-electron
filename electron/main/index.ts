@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import os from 'node:os'
 import { update } from './update'
+import { registerPluginHandlers } from './plugins'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -55,6 +56,7 @@ async function createWindow() {
     webPreferences: {
       preload,
       webviewTag: true, // 启用 webview 标签
+      nodeIntegrationInSubFrames: true, // 允许 webview 中的 preload 脚本使用 Node.js
       // Warning: Enable nodeIntegration and disable contextIsolation is not secure in production
       // nodeIntegration: true,
 
@@ -62,6 +64,18 @@ async function createWindow() {
       // Read more on https://www.electronjs.org/docs/latest/tutorial/context-isolation
       // contextIsolation: false,
     },
+  })
+
+  // 监听 webview 的权限请求
+  win.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+    console.log('[Main] Permission requested:', permission)
+    callback(true) // 允许所有权限请求
+  })
+
+  // 设置 preload 脚本的协议权限
+  win.webContents.session.protocol.registerFileProtocol('file', (request, callback) => {
+    const url = request.url.replace('file:///', '')
+    callback({ path: url })
   })
 
   if (VITE_DEV_SERVER_URL) { // #298
@@ -77,6 +91,22 @@ async function createWindow() {
     win?.webContents.send('main-process-message', new Date().toLocaleString())
   })
 
+  // 监听 webview 的创建并打开其开发者工具
+  win.webContents.on('did-attach-webview', (event, webContents) => {
+    console.log('[Main] Webview attached, opening DevTools...')
+    
+    // 在 webview 加载完成后打开开发者工具
+    webContents.on('did-finish-load', () => {
+      console.log('[Main] Webview finished loading')
+      // webContents.openDevTools()
+    })
+
+    // 监听 webview 的控制台消息
+    webContents.on('console-message', (event, level, message, line, sourceId) => {
+      console.log(`[Webview Console] ${message}`)
+    })
+  })
+
   // Make all links open with the browser, not with the application
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https:')) shell.openExternal(url)
@@ -87,7 +117,12 @@ async function createWindow() {
   update(win)
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  // 注册插件 IPC handlers
+  registerPluginHandlers()
+  
+  createWindow()
+})
 
 app.on('window-all-closed', () => {
   win = null
@@ -145,42 +180,49 @@ ipcMain.handle('resolve-app-path', (_, url: string) => {
   }
 })
 
-// Resolve preload script path for webview (must return file:// protocol path)
+// Resolve preload script path for webview (must return file:// URL)
 ipcMain.handle('resolve-preload-path', async (_, preloadPath: string) => {
   console.log('[Main] resolve-preload-path called with:', preloadPath)
   
   let absolutePath: string
   
-  // 如果已经是完整的文件系统路径（用户应用），使用它
-  if (path.isAbsolute(preloadPath) && !preloadPath.startsWith('/apps')) {
-    console.log('[Main] Already absolute path:', preloadPath)
+  // 如果已经是 file:// 格式，提取路径部分
+  if (preloadPath.startsWith('file://')) {
+    absolutePath = preloadPath.replace('file://', '')
+    console.log('[Main] Already file:// URL, extracted path:', absolutePath)
+  }
+  // 如果是绝对路径（用户应用），直接使用
+  else if (path.isAbsolute(preloadPath) && !preloadPath.startsWith('/apps')) {
+    console.log('[Main] User app absolute path:', preloadPath)
     absolutePath = preloadPath
-  } else {
-    // 内置应用的 preload 脚本路径
+  } 
+  // 内置应用的相对路径
+  else {
     // preloadPath 格式: /apps/hosts-view/preload.js
     // 移除开头的斜杠，避免 path.join 的问题
     const relativePath = preloadPath.startsWith('/') ? preloadPath.slice(1) : preloadPath
     const publicDir = process.env.VITE_PUBLIC!
     absolutePath = path.join(publicDir, relativePath)
     
-    console.log('[Main] Public dir:', publicDir)
-    console.log('[Main] Relative path:', relativePath)
+    console.log('[Main] Built-in app - Public dir:', publicDir)
+    console.log('[Main] Built-in app - Relative path:', relativePath)
   }
   
-  console.log('[Main] Absolute path:', absolutePath)
+  console.log('[Main] Resolved absolute path:', absolutePath)
   
   // 检查文件是否存在
   try {
     const fs = await import('node:fs/promises')
     await fs.access(absolutePath)
-    console.log('[Main] Preload file exists ✓')
+    console.log('[Main] ✓ Preload file exists')
   } catch (error) {
-    console.error('[Main] Preload file does not exist ✗')
+    console.error('[Main] ✗ Preload file does not exist:', absolutePath)
+    console.error('[Main] Error:', error)
   }
   
-  // 转换为 file:// 协议 URL
+  // 确保返回 file:// 协议 URL（webview 的 preload 属性要求）
   const fileUrl = `file://${absolutePath}`
-  console.log('[Main] Final preload URL:', fileUrl)
+  console.log('[Main] Final preload URL (file://):', fileUrl)
   
   return fileUrl
 })
@@ -286,42 +328,4 @@ ipcMain.handle('get-apps-list', async () => {
   }
   
   return apps
-})
-
-// 读取 hosts 文件
-ipcMain.handle('read-hosts-file', async () => {
-  const fs = await import('node:fs/promises')
-  
-  // 根据操作系统确定 hosts 文件路径
-  let hostsPath: string
-  if (process.platform === 'win32') {
-    hostsPath = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'drivers', 'etc', 'hosts')
-  } else {
-    hostsPath = '/etc/hosts'
-  }
-  
-  try {
-    const content = await fs.readFile(hostsPath, 'utf-8')
-    return {
-      success: true,
-      content,
-      path: hostsPath
-    }
-  } catch (error) {
-    console.error('Failed to read hosts file:', error)
-    return {
-      success: false,
-      error: (error as Error).message,
-      path: hostsPath
-    }
-  }
-})
-
-// 获取 hosts 文件路径
-ipcMain.handle('get-hosts-path', () => {
-  if (process.platform === 'win32') {
-    return path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'drivers', 'etc', 'hosts')
-  } else {
-    return '/etc/hosts'
-  }
 })

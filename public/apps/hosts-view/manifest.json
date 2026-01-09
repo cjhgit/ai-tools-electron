@@ -1,7 +1,8 @@
 {
     "id": "hosts-view",
     "name": "Hosts 查看器",
-    "preload": "preload.js",
     "description": "查看和管理系统 hosts 文件",
-    "icon": "icon.png"
+    "icon": "icon.png",
+    "main": "main.js",
+    "preload": "preload.js"
 }
